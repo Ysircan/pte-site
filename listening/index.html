@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Listening · Modules</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root { --bg:#f4f6f9; --card:#fff; --ink:#0b1220; --muted:#6b7280 }
+  *{box-sizing:border-box} 
+  body{
+    margin:0;
+    font-family:system-ui,-apple-system,Segoe UI,Roboto;
+    background:var(--bg);
+    color:var(--ink);
+  }
+  nav{
+    background:#0b1220;
+    color:#fff;
+    padding:14px 20px;
+    display:flex;
+    gap:28px;
+    justify-content:center;
+  }
+  nav a{
+    color:#fff;
+    text-decoration:none;
+    font-weight:600;
+    opacity:.9;
+  } 
+  nav a:hover{opacity:1}
+  main{
+    max-width:920px;
+    margin:36px auto;
+    padding:0 20px;
+  }
+  h1{margin:0 0 8px 0}
+  .sub{color:var(--muted);margin-bottom:18px}
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:14px;
+  }
+  @media (max-width:720px){
+    .grid{grid-template-columns:1fr}
+  }
+  .tile{
+    background:var(--card);
+    border-radius:12px;
+    padding:20px;
+    box-shadow:0 6px 16px rgba(0,0,0,.06);
+    cursor:pointer;
+    transition:.2s;
+    text-align:center;
+    font-size:18px;
+    font-weight:600;
+  }
+  .tile:hover{
+    transform:translateY(-2px);
+    background:#eef2ff;
+  }
+</style>
+</head>
+<body>
+<nav>
+  <a href="../index.html">Home</a>
+  <a href="./speaking/index.html">Speaking</a>
+  <a href="./writing/index.html">Writing</a>
+  <a href="./reading/index.html">Reading</a>
+  <a href="./index.html" style="opacity:1;text-decoration:underline;">Listening</a>
+</nav>
+
+<main>
+  <h1>Listening</h1>
+  <div class="sub">WFD · SST</div>
+
+  <section class="grid">
+    <div class="tile" onclick="location.href='./wfd/wfd.html'">
+      Write From Dictation (WFD)
+    </div>
+    <div class="tile" onclick="alert('Coming soon!')">
+      Summarize Spoken Text (SST)
+    </div>
+  </section>
+</main>
+</body>
+</html>

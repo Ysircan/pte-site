@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Listening · WFD</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root { --bg:#f4f6f9; --card:#fff; --ink:#0b1220; --muted:#6b7280; --brand:#0f62fe }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto;background:var(--bg);color:var(--ink)}
+  nav{background:#0b1220;color:#fff;padding:14px 20px;display:flex;gap:28px;justify-content:center}
+  nav a{color:#fff;text-decoration:none;font-weight:600;opacity:.9} nav a:hover{opacity:1}
+  main{max-width:980px;margin:32px auto;padding:0 20px}
+  h1{margin:0 0 8px 0;font-size:40px}
+  .muted{color:var(--muted);margin:6px 0 14px}
+
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0 18px}
+  .tab{border:1px solid #e5e7eb;background:#fff;border-radius:999px;padding:10px 16px;cursor:pointer;font-weight:600}
+  .tab.active{background:#0b1220;color:#fff;border-color:#0b1220}
+
+  .card{background:var(--card);border-radius:16px;padding:18px;box-shadow:0 10px 24px rgba(0,0,0,.08)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+  button{padding:10px 16px;border:0;border-radius:10px;background:#111827;color:#fff;cursor:pointer;font-weight:700}
+  button.ghost{background:#e5e7eb;color:#111827}
+  audio{width:100%}
+
+  #prompt{margin:14px 0 0 0;font-size:22px;line-height:1.7}
+  .input-blank{width:100px;max-width:28vw;padding:8px;font-size:18px;margin:0 6px}
+  input.full{width:100%;padding:12px 14px;border:1px solid #e5e7eb;border-radius:12px;margin:12px 0;font-size:18px}
+
+  #result{margin-top:10px;font-weight:700}
+  #result .answer{color:#065f46}
+
+  #questionNav{margin-top:22px}
+  #questionNav .title{font-weight:800;margin-bottom:8px}
+  #questionNav .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:8px}
+  @media (max-width:720px){ #questionNav .grid{grid-template-columns:repeat(8,1fr)} }
+  #questionNav button{height:36px;border-radius:8px;font-weight:800;cursor:pointer}
+
+  /* ⭐ 新增：进度条样式 */
+  .progress {height:8px;background:#e5e7eb;border-radius:999px;margin-top:10px;overflow:hidden}
+  .progress > span{display:block;height:100%;transition:width .25s ease}
+  #pgInfo{font-size:12px;margin-top:6px;color:#6b7280}
+</style>
+</head>
+<body>
+<nav>
+  <a href="../../index.html">Home</a>
+  <a href="../../speaking/index.html">Speaking</a>
+  <a href="../../writing/index.html">Writing</a>
+  <a href="../../reading/index.html">Reading</a>
+  <a href="../../listening/index.html">Listening</a>
+</nav>
+
+
+<main>
+  <h1>Listening · WFD</h1>
+  <div class="muted">Choose a mode to start practicing.</div>
+
+  <!-- 模式 Tab -->
+  <div class="toolbar" id="tabs">
+    <div class="tab active" data-mode="fw">Function Words</div>
+    <div class="tab" data-mode="cw">Content Words</div>
+    <div class="tab" data-mode="full">Full Sentence</div>
+  </div>
+
+  <!-- 练习卡片 -->
+  <div class="card">
+    <audio id="audio" controls></audio>
+
+    <div id="prompt"></div>
+    <div id="inputs"></div>
+
+    <div class="row">
+      <button class="ghost" id="prevBtn">Prev</button>
+      <button id="checkBtn">Check</button>
+      <button class="ghost" id="showBtn">Show Answer</button>
+      <!-- ⭐ 新增按钮：查看我的句子 -->
+      <button class="ghost" id="viewBtn">查看我的句子</button>
+      <button class="ghost" id="resetBtn">Reset</button>
+      <button class="ghost" id="nextBtn">Next</button>
+    </div>
+
+    <!-- ⭐ 新增：进度条与文字 -->
+    <div class="progress"><span id="pgBar"></span></div>
+    <div id="pgInfo" class="muted"></div>
+
+    <div id="result"></div>
+  </div>
+
+  <!-- 题号导航 -->
+  <div id="questionNav">
+    <div class="title" id="navTitle">Question Navigator</div>
+    <div class="grid" id="qGrid"></div>
+  </div>
+</main>
+
+<!-- 题库文件（与本页同目录） -->
+<script src="./data-fw.js"></script>
+<script src="./data-cw.js"></script>
+<script src="./data-full.js"></script>
+
+<script>
+/* 音频根目录：wfd.html 在 listening/wfd/；音频在 listening/audio/ */
+const AUDIO_BASE = "../audio/";
+
+/* —— 状态 —— */
+let mode = "fw";       // fw | cw | full
+let list = [];
+let idx  = 0;
+
+const $ = s => document.querySelector(s);
+const norm = s => (s||"").trim().toLowerCase()
+  .replace(/[.,!?;:"'’”“()[\]]/g,"").replace(/\s+/g," ");
+const resultKey = (m,id) => `wfd_${m}_result_${id}`;
+const countHoles = s => ((s||"").match(/___/g) || []).length;
+
+/* ⭐ 新增：解锁词存储（按题） */
+const unlockKey = id => `wfd_unlock_${id}`;
+function getUnlockedSet(id){
+  try{
+    const arr = JSON.parse(localStorage.getItem(unlockKey(id))||"[]");
+    return new Set(arr.map(x=>String(x).toLowerCase()));
+  }catch{ return new Set(); }
+}
+function saveUnlockedSet(id,set){
+  localStorage.setItem(unlockKey(id), JSON.stringify([...set]));
+}
+function addUnlockedWords(id, words){
+  const s = getUnlockedSet(id);
+  words.forEach(w=>{ if(w) s.add(String(w).toLowerCase()); });
+  saveUnlockedSet(id, s);
+}
+const wordTokens = s => (s.match(/[A-Za-z']+|[^A-Za-z']+/g) || []);
+function maskedSentence(ans, unlocked){
+  const tokens = wordTokens(ans);
+  return tokens.map(t=>{
+    if(!/^[A-Za-z']+$/.test(t)) return t;
+    const ok = unlocked.has(t.toLowerCase());
+    if(ok) return t; // 已解锁词直接显示
+    const first = t[0];
+    return first + "_".repeat(Math.max(2, t.length-1)); // 未解锁：首字母+下划线
+  }).join("");
+}
+/* ⭐ 新增：进度条渲染 */
+function renderProgress(){
+  const item = list[idx]; if(!item) return;
+  const unlocked = getUnlockedSet(item.id);
+  const total = wordTokens(item.answer).filter(w=>/^[A-Za-z']+$/.test(w)).length || 1;
+  const done = unlocked.size;
+  const pct = Math.min(100, Math.round(done*100/total));
+  $("#pgBar").style.width = pct + "%";
+  $("#pgBar").style.background = pct >= 100 ? "#10b981" : "#0f62fe";
+  $("#pgInfo").textContent = `Progress: ${done}/${total} (${pct}%)`;
+}
+
+/* Tab 切换 */
+$("#tabs").addEventListener("click", e=>{
+  const t = e.target.closest(".tab");
+  if(!t) return;
+  mode = t.dataset.mode;
+  [...$("#tabs").children].forEach(x=>x.classList.toggle("active", x===t));
+  rebuild();
+});
+
+/* 按钮 */
+$("#checkBtn").addEventListener("click", onCheck);
+$("#showBtn").addEventListener("click", onShow);
+$("#resetBtn").addEventListener("click", onResetAll);
+$("#prevBtn").addEventListener("click", ()=>{ if(!list.length) return; idx=(idx-1+list.length)%list.length; render(); renderNav(); });
+$("#nextBtn").addEventListener("click", ()=>{ if(!list.length) return; idx=(idx+1)%list.length; render(); renderNav(); });
+/* ⭐ 新增：查看我的句子 */
+$("#viewBtn").addEventListener("click", ()=>{
+  const item = list[idx]; if(!item) return;
+  const unlocked = getUnlockedSet(item.id);
+  const masked = maskedSentence(item.answer, unlocked);
+  alert(masked); // 简洁实现；要模态框版本再说
+});
+
+/* 载入当前题库 */
+function rebuild(){
+  const MAP = { fw: (window.DATA_FW||[]), cw: (window.DATA_CW||[]), full: (window.DATA_FULL||[]) };
+  list = MAP[mode] || [];
+  idx = 0;
+  if(!list.length) renderEmpty(); else render();
+  renderNav();
+}
+
+/* 渲染空 */
+function renderEmpty(){
+  $("#audio").src = "";
+  $("#prompt").textContent = "";
+  $("#inputs").innerHTML = "";
+  $("#result").innerHTML = `<span style="color:#b45309">No items found.</span>`;
+  $("#navTitle").textContent = "Question Navigator · 0 items";
+  $("#qGrid").innerHTML = "";
+  renderProgress(); // ⭐ 新增
+}
+
+/* 渲染题面（输入框数量跟随 ___ 个数） */
+function render(){
+  $("#result").textContent = "";
+  const item = list[idx];
+  if(!item) return renderEmpty();
+
+  $("#audio").src = AUDIO_BASE + (item.audio || "");
+  $("#prompt").textContent = item.prompt || "";
+  $("#inputs").innerHTML = "";
+
+  if (mode === "full") {
+    const input = document.createElement("input");
+    input.type = "text";
+    input.placeholder = "Type what you hear...";
+    input.className = "full";
+    $("#inputs").appendChild(input);
+  } else {
+    const wrap = document.createElement("div");
+    const holes = countHoles(item.prompt || "");
+    const n = holes > 0 ? holes : (item.blanks || []).length; // 兼容旧数据
+    for (let i = 0; i < n; i++){
+      const inp = document.createElement("input");
+      inp.type = "text";
+      inp.className = "input-blank";
+      wrap.appendChild(inp);
+    }
+    $("#inputs").appendChild(wrap);
+  }
+
+  renderProgress(); // ⭐ 新增
+}
+
+/* 导航（含 warn 状态） */
+function renderNav(){
+  const N = list.length;
+  $("#navTitle").textContent = `Question Navigator · ${N} item${N>1?'s':''}`;
+  const grid = $("#qGrid");
+  grid.innerHTML = "";
+  list.forEach((item, i) => {
+    const state = localStorage.getItem(resultKey(mode, item.id)); // correct | wrong | warn
+    let border="#ccc", bg="#f4f4f4", col="#333";
+    if (i===idx){ border="#0f62fe"; bg="#e6f0ff"; col="#0f62fe"; }
+    else if (state==="correct"){ border="#28a745"; bg="#e6f9ec"; col="#28a745"; }
+    else if (state==="warn"){ border="#b45309"; bg="#fff8e1"; col="#b45309"; }
+    else if (state==="wrong"){ border="#dc3545"; bg="#fdecea"; col="#dc3545"; }
+
+    const btn=document.createElement("button");
+    btn.textContent=i+1;
+    btn.style.border=`2px solid ${border}`;
+    btn.style.background=bg;
+    btn.style.color=col;
+    btn.addEventListener("click",()=>{idx=i;render();renderNav();});
+    grid.appendChild(btn);
+  });
+}
+
+/* 首字母大小写检测 */
+function firstLetterCaseMismatch(userStr, ansStr){
+  const um = (userStr || "").match(/[A-Za-z]/);
+  const am = (ansStr  || "").match(/[A-Za-z]/);
+  if (!um || !am) return false;
+  const uc = um[0], ac = am[0];
+  if (uc.toLowerCase() !== ac.toLowerCase()) return false;
+  return uc !== ac;
+}
+
+/* 判题（含首字母大小写提示；fw/cw 按当前可见输入框数量比对） */
+function onCheck(){
+  const item = list[idx];
+  if (!item) return;
+  $("#inputs").querySelectorAll(".mark").forEach(m=>m.remove());
+
+  if (mode === "full") {
+    const input = $("#inputs input.full");
+    const user = (input.value || "").trim();
+    const ans  = (item.answer || "").trim();
+
+    const contentOK = norm(user) === norm(ans);
+    if (contentOK) {
+      if (firstLetterCaseMismatch(user, ans)) {
+        $("#result").innerHTML = "⚠️ Spelling correct, but check capitalization of the first letter.";
+        localStorage.setItem(resultKey(mode, item.id), "warn");
+      } else {
+        $("#result").textContent = "✅ Correct";
+        localStorage.setItem(resultKey(mode, item.id), "correct");
+      }
+    } else {
+      $("#result").textContent = "❌ Try again";
+      localStorage.setItem(resultKey(mode, item.id), "wrong");
+    }
+
+  } else {
+    const ins = [...$("#inputs").querySelectorAll("input.input-blank")];
+    const expected = (item.blanks || []);
+    const answers = expected.slice(0, ins.length);
+    while (answers.length < ins.length) answers.push("");
+
+    let exactAll = true, anyWarn = false, anyWrong = false;
+    const toUnlock = []; // ⭐ 新增：收集本次做对（忽略大小写）的词
+
+    ins.forEach((inp, k)=>{
+      const user = (inp.value || "").trim();
+      const ans  = (answers[k] || "").trim();
+      const icOK  = user.toLowerCase() === ans.toLowerCase();
+      const exact = user === ans;
+      const warn  = icOK && !exact && firstLetterCaseMismatch(user, ans);
+
+      if (icOK) toUnlock.push(ans); // ⭐ 记录已解锁词
+
+      const mark = document.createElement("span");
+      mark.className = "mark";
+      mark.style.marginLeft = "6px";
+      mark.style.fontWeight = "bold";
+      if (exact){ mark.style.color = "green";   mark.textContent = "✔"; }
+      else if (warn){ mark.style.color = "#b45309"; mark.textContent = "!"; anyWarn = true; }
+      else { mark.style.color = "red"; mark.textContent = "✘"; anyWrong = true; }
+      inp.after(mark);
+
+      if (!exact) exactAll = false;
+    });
+
+    if (toUnlock.length) addUnlockedWords(item.id, toUnlock); // ⭐ 保存解锁到本地
+    renderProgress(); // ⭐ 刷新进度
+
+    if (exactAll) {
+      $("#result").textContent = "✅ All blanks correct!";
+      localStorage.setItem(resultKey(mode, item.id), "correct");
+    } else if (!anyWrong && anyWarn) {
+      $("#result").innerHTML = "⚠️ Spelling correct, but check capitalization (first letter).";
+      localStorage.setItem(resultKey(mode, item.id), "warn");
+    } else {
+      $("#result").textContent = "❌ Some blanks are wrong";
+      localStorage.setItem(resultKey(mode, item.id), "wrong");
+    }
+  }
+
+  renderNav();
+}
+
+/* 看答案 */
+function onShow(){
+  const item = list[idx];
+  if (!item) return;
+  $("#result").innerHTML = `Answer: <span class="answer">${item.answer}</span>`;
+}
+
+/* 重置当前模式记录 */
+function onResetAll(){
+  list.forEach(item=>localStorage.removeItem(resultKey(mode, item.id)));
+  idx = 0;
+  render();
+  renderNav();
+  $("#result").textContent = "";
+  renderProgress(); // ⭐ 保持进度条刷新
+}
+
+/* 启动 */
+rebuild();
+</script>
+</body>
+</html>
