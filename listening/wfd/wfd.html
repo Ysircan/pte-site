@@ -35,12 +35,83 @@
   #questionNav .title{font-weight:800;margin-bottom:8px}
   #questionNav .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:8px}
   @media (max-width:720px){ #questionNav .grid{grid-template-columns:repeat(8,1fr)} }
-  #questionNav button{height:36px;border-radius:8px;font-weight:800;cursor:pointer}
+  #questionNav button{height:36px;border-radius:8px;font-weight:800;cursor:pointer;position:relative;overflow:visible}
 
-  /* ⭐ 新增：进度条样式 */
+  /* 进度条样式（保留） */
   .progress {height:8px;background:#e5e7eb;border-radius:999px;margin-top:10px;overflow:hidden}
   .progress > span{display:block;height:100%;transition:width .25s ease}
   #pgInfo{font-size:12px;margin-top:6px;color:#6b7280}
+
+  /* FULL 模式缺词标红（保留） */
+  mark.miss { color:#e11d48; background:transparent; font-weight:700; }
+
+  /* ————— 🌟 满贯“整圈金框 + 流动高光”（常驻，直到 reset） ————— */
+
+  @property --flow-pos { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
+
+  /* 金框类：仅隐藏原边框；不改变原背景/文字颜色（不遮号） */
+  #qGrid button.gold-frame {
+    border-color: transparent !important;
+  }
+
+  /* 实体金框（常亮） */
+  #qGrid button.gold-frame::before{
+    content:"";
+    position:absolute;
+    inset:-3px;
+    border-radius:10px;
+    padding:3px;
+    background: linear-gradient(90deg,#f59e0b,#fbbf24,#fde68a,#facc15,#f59e0b);
+    background-size: 200% 100%;
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    pointer-events:none;
+  }
+
+  /* 流动高光纹理（覆盖在金框上，整体流动） */
+  #qGrid button.gold-frame::after{
+    content:"";
+    position:absolute;
+    inset:-3px;
+    border-radius:10px;
+    padding:3px;
+    background:
+      linear-gradient(90deg,
+        rgba(255,255,255,0) 0%,
+        rgba(255,255,255,0.35) 25%,
+        rgba(255,255,255,0.65) 50%,
+        rgba(255,255,255,0.35) 75%,
+        rgba(255,255,255,0) 100%);
+    background-size: 200% 100%;
+    background-position: var(--flow-pos) 0%;
+    mix-blend-mode: screen;
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    animation: goldFlowMove 3.2s linear infinite;
+    pointer-events:none;
+  }
+
+  @keyframes goldFlowMove { to { --flow-pos: 100%; } }
+
+  /* 首次达成轻微脉冲（一次） */
+  @keyframes starPulse {
+    0%   { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.0); }
+    50%  { box-shadow: 0 0 12px 4px rgba(250, 204, 21, 0.55); }
+    100% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.0); }
+  }
+  #qGrid button.gold-frame.celebrate { animation: starPulse 0.6s ease-in-out 3; }
+
+  /* 减少动态：金框常亮但不流动不脉冲 */
+  @media (prefers-reduced-motion: reduce) {
+    #qGrid button.gold-frame::after { animation: none; }
+    #qGrid button.gold-frame.celebrate { animation: none; }
+  }
 </style>
 </head>
 <body>
@@ -51,7 +122,6 @@
   <a href="../../reading/index.html">Reading</a>
   <a href="../../listening/index.html">Listening</a>
 </nav>
-
 
 <main>
   <h1>Listening · WFD</h1>
@@ -75,13 +145,10 @@
       <button class="ghost" id="prevBtn">Prev</button>
       <button id="checkBtn">Check</button>
       <button class="ghost" id="showBtn">Show Answer</button>
-      <!-- ⭐ 新增按钮：查看我的句子 -->
-      <button class="ghost" id="viewBtn">查看我的句子</button>
       <button class="ghost" id="resetBtn">Reset</button>
       <button class="ghost" id="nextBtn">Next</button>
     </div>
 
-    <!-- ⭐ 新增：进度条与文字 -->
     <div class="progress"><span id="pgBar"></span></div>
     <div id="pgInfo" class="muted"></div>
 
@@ -110,39 +177,74 @@ let list = [];
 let idx  = 0;
 
 const $ = s => document.querySelector(s);
+
+/* 规范化与分词 */
 const norm = s => (s||"").trim().toLowerCase()
   .replace(/[.,!?;:"'’”“()[\]]/g,"").replace(/\s+/g," ");
 const resultKey = (m,id) => `wfd_${m}_result_${id}`;
 const countHoles = s => ((s||"").match(/___/g) || []).length;
 
-/* ⭐ 新增：解锁词存储（按题） */
+/* FULL 词频 */
+const wordOnlyTokens = s => (s||"").toLowerCase().match(/[a-z']+/g) || [];
+const freqMap = tokens => { const m=new Map(); for(const t of tokens)m.set(t,(m.get(t)||0)+1); return m; };
+
+function judgeFULL(answerText, userText){
+  const need = freqMap(wordOnlyTokens(answerText));
+  const have = freqMap(wordOnlyTokens(userText));
+  for (const [w, cnt] of need.entries()) if ((have.get(w) || 0) < cnt) return false;
+  return true;
+}
+
+/* Show Answer 缺词标红 */
+const wordTokens = s => (s.match(/[A-Za-z']+|[^A-Za-z']+/g) || []);
+function highlightMissingInAnswer(answerText, userText){
+  const need = freqMap(wordOnlyTokens(answerText));
+  const have = freqMap(wordOnlyTokens(userText));
+  const seen = new Map();
+  return (wordTokens(answerText)).map(tok=>{
+    if(!/^[A-Za-z']+$/.test(tok)) return tok;
+    const key = tok.toLowerCase();
+    const totalNeed = need.get(key) || 0;
+    if (!totalNeed) return tok;
+    const k = (seen.get(key) || 0) + 1; seen.set(key,k);
+    const haveCnt = have.get(key) || 0;
+    return (k>haveCnt) ? `<mark class="miss">${tok}</mark>` : tok;
+  }).join('');
+}
+
+/* FW/CW：独立词匹配（多写不罚） */
+function escapeRegExp(s){ return (s||'').replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
+function findWordMatch(hay, needle){
+  const re = new RegExp(`\\b${escapeRegExp(needle)}\\b`, 'i');
+  const m = (hay || '').match(re);
+  return m ? m[0] : null;
+}
+
+/* —— 解锁进度（保留，以驱动进度条） —— */
 const unlockKey = id => `wfd_unlock_${id}`;
 function getUnlockedSet(id){
-  try{
-    const arr = JSON.parse(localStorage.getItem(unlockKey(id))||"[]");
-    return new Set(arr.map(x=>String(x).toLowerCase()));
-  }catch{ return new Set(); }
+  try{ const arr = JSON.parse(localStorage.getItem(unlockKey(id))||"[]"); return new Set(arr.map(x=>String(x).toLowerCase())); }
+  catch{ return new Set(); }
 }
-function saveUnlockedSet(id,set){
-  localStorage.setItem(unlockKey(id), JSON.stringify([...set]));
-}
+function saveUnlockedSet(id,set){ localStorage.setItem(unlockKey(id), JSON.stringify([...set])); }
 function addUnlockedWords(id, words){
   const s = getUnlockedSet(id);
   words.forEach(w=>{ if(w) s.add(String(w).toLowerCase()); });
   saveUnlockedSet(id, s);
 }
-const wordTokens = s => (s.match(/[A-Za-z']+|[^A-Za-z']+/g) || []);
-function maskedSentence(ans, unlocked){
-  const tokens = wordTokens(ans);
-  return tokens.map(t=>{
-    if(!/^[A-Za-z']+$/.test(t)) return t;
-    const ok = unlocked.has(t.toLowerCase());
-    if(ok) return t; // 已解锁词直接显示
-    const first = t[0];
-    return first + "_".repeat(Math.max(2, t.length-1)); // 未解锁：首字母+下划线
-  }).join("");
+
+/* 🌟 满贯判定、庆祝与“常驻金框”持久化 */
+const starCelebrateKey = id => `wfd_star_celebrated_${id}`; // 首次脉冲已播
+const starPersistKey   = id => `wfd_star_persist_${id}`;     // 常驻金框标记（1=常驻）
+
+function hasLiveFullPass(id){
+  const fw   = localStorage.getItem(resultKey('fw',   id));
+  const cw   = localStorage.getItem(resultKey('cw',   id));
+  const full = localStorage.getItem(resultKey('full', id));
+  return fw === 'correct' && cw === 'correct' && full === 'correct';
 }
-/* ⭐ 新增：进度条渲染 */
+
+/* 进度条（保留） */
 function renderProgress(){
   const item = list[idx]; if(!item) return;
   const unlocked = getUnlockedSet(item.id);
@@ -154,10 +256,9 @@ function renderProgress(){
   $("#pgInfo").textContent = `Progress: ${done}/${total} (${pct}%)`;
 }
 
-/* Tab 切换 */
+/* Tab */
 $("#tabs").addEventListener("click", e=>{
-  const t = e.target.closest(".tab");
-  if(!t) return;
+  const t = e.target.closest(".tab"); if(!t) return;
   mode = t.dataset.mode;
   [...$("#tabs").children].forEach(x=>x.classList.toggle("active", x===t));
   rebuild();
@@ -169,15 +270,8 @@ $("#showBtn").addEventListener("click", onShow);
 $("#resetBtn").addEventListener("click", onResetAll);
 $("#prevBtn").addEventListener("click", ()=>{ if(!list.length) return; idx=(idx-1+list.length)%list.length; render(); renderNav(); });
 $("#nextBtn").addEventListener("click", ()=>{ if(!list.length) return; idx=(idx+1)%list.length; render(); renderNav(); });
-/* ⭐ 新增：查看我的句子 */
-$("#viewBtn").addEventListener("click", ()=>{
-  const item = list[idx]; if(!item) return;
-  const unlocked = getUnlockedSet(item.id);
-  const masked = maskedSentence(item.answer, unlocked);
-  alert(masked); // 简洁实现；要模态框版本再说
-});
 
-/* 载入当前题库 */
+/* 载入题库 */
 function rebuild(){
   const MAP = { fw: (window.DATA_FW||[]), cw: (window.DATA_CW||[]), full: (window.DATA_FULL||[]) };
   list = MAP[mode] || [];
@@ -186,7 +280,7 @@ function rebuild(){
   renderNav();
 }
 
-/* 渲染空 */
+/* 空态 */
 function renderEmpty(){
   $("#audio").src = "";
   $("#prompt").textContent = "";
@@ -194,14 +288,13 @@ function renderEmpty(){
   $("#result").innerHTML = `<span style="color:#b45309">No items found.</span>`;
   $("#navTitle").textContent = "Question Navigator · 0 items";
   $("#qGrid").innerHTML = "";
-  renderProgress(); // ⭐ 新增
+  renderProgress();
 }
 
-/* 渲染题面（输入框数量跟随 ___ 个数） */
+/* 渲染题面 */
 function render(){
   $("#result").textContent = "";
-  const item = list[idx];
-  if(!item) return renderEmpty();
+  const item = list[idx]; if(!item) return renderEmpty();
 
   $("#audio").src = AUDIO_BASE + (item.audio || "");
   $("#prompt").textContent = item.prompt || "";
@@ -216,7 +309,7 @@ function render(){
   } else {
     const wrap = document.createElement("div");
     const holes = countHoles(item.prompt || "");
-    const n = holes > 0 ? holes : (item.blanks || []).length; // 兼容旧数据
+    const n = holes > 0 ? holes : (item.blanks || []).length;
     for (let i = 0; i < n; i++){
       const inp = document.createElement("input");
       inp.type = "text";
@@ -226,15 +319,16 @@ function render(){
     $("#inputs").appendChild(wrap);
   }
 
-  renderProgress(); // ⭐ 新增
+  renderProgress();
 }
 
-/* 导航（含 warn 状态） */
+/* 导航：原状态色 + 金框常驻（基于持久标记），新达成即写入并脉冲一次 */
 function renderNav(){
   const N = list.length;
   $("#navTitle").textContent = `Question Navigator · ${N} item${N>1?'s':''}`;
   const grid = $("#qGrid");
   grid.innerHTML = "";
+
   list.forEach((item, i) => {
     const state = localStorage.getItem(resultKey(mode, item.id)); // correct | wrong | warn
     let border="#ccc", bg="#f4f4f4", col="#333";
@@ -248,12 +342,32 @@ function renderNav(){
     btn.style.border=`2px solid ${border}`;
     btn.style.background=bg;
     btn.style.color=col;
+
+    // 若本题尚未常驻金框，但“当前实时状态”首次达到满贯 → 写入常驻标记，并触发一次脉冲
+    const persisted = localStorage.getItem(starPersistKey(item.id)) === '1';
+    if (!persisted && hasLiveFullPass(item.id)) {
+      localStorage.setItem(starPersistKey(item.id), '1');
+      // 记录已庆祝，避免重复
+      if (localStorage.getItem(starCelebrateKey(item.id)) !== '1') {
+        btn.classList.add('celebrate');
+        btn.addEventListener('animationend', () => {
+          btn.classList.remove('celebrate');
+          localStorage.setItem(starCelebrateKey(item.id), '1');
+        }, { once: true });
+      }
+    }
+
+    // 只要常驻标记存在，就显示金框（无论当前是否仍然满足满贯）
+    if (localStorage.getItem(starPersistKey(item.id)) === '1') {
+      btn.classList.add('gold-frame');
+    }
+
     btn.addEventListener("click",()=>{idx=i;render();renderNav();});
     grid.appendChild(btn);
   });
 }
 
-/* 首字母大小写检测 */
+/* 首字母大小写检测（非阻断） */
 function firstLetterCaseMismatch(userStr, ansStr){
   const um = (userStr || "").match(/[A-Za-z]/);
   const am = (ansStr  || "").match(/[A-Za-z]/);
@@ -263,10 +377,9 @@ function firstLetterCaseMismatch(userStr, ansStr){
   return uc !== ac;
 }
 
-/* 判题（含首字母大小写提示；fw/cw 按当前可见输入框数量比对） */
+/* 判题 */
 function onCheck(){
-  const item = list[idx];
-  if (!item) return;
+  const item = list[idx]; if (!item) return;
   $("#inputs").querySelectorAll(".mark").forEach(m=>m.remove());
 
   if (mode === "full") {
@@ -274,8 +387,8 @@ function onCheck(){
     const user = (input.value || "").trim();
     const ans  = (item.answer || "").trim();
 
-    const contentOK = norm(user) === norm(ans);
-    if (contentOK) {
+    const pass = judgeFULL(ans, user);
+    if (pass) {
       if (firstLetterCaseMismatch(user, ans)) {
         $("#result").innerHTML = "⚠️ Spelling correct, but check capitalization of the first letter.";
         localStorage.setItem(resultKey(mode, item.id), "warn");
@@ -289,42 +402,44 @@ function onCheck(){
     }
 
   } else {
+    // FW / CW：包含目标词即可（多写不罚；独立词边界）
     const ins = [...$("#inputs").querySelectorAll("input.input-blank")];
     const expected = (item.blanks || []);
     const answers = expected.slice(0, ins.length);
     while (answers.length < ins.length) answers.push("");
 
-    let exactAll = true, anyWarn = false, anyWrong = false;
-    const toUnlock = []; // ⭐ 新增：收集本次做对（忽略大小写）的词
+    let allOK = true, anyWarn = false;
+    const toUnlock = [];
 
     ins.forEach((inp, k)=>{
       const user = (inp.value || "").trim();
       const ans  = (answers[k] || "").trim();
-      const icOK  = user.toLowerCase() === ans.toLowerCase();
-      const exact = user === ans;
-      const warn  = icOK && !exact && firstLetterCaseMismatch(user, ans);
 
-      if (icOK) toUnlock.push(ans); // ⭐ 记录已解锁词
+      const matched = findWordMatch(user, ans);
+      const ok = !!matched;
+      const warn = ok && firstLetterCaseMismatch(matched, ans);
+
+      if (ok) toUnlock.push(ans);
 
       const mark = document.createElement("span");
       mark.className = "mark";
       mark.style.marginLeft = "6px";
       mark.style.fontWeight = "bold";
-      if (exact){ mark.style.color = "green";   mark.textContent = "✔"; }
-      else if (warn){ mark.style.color = "#b45309"; mark.textContent = "!"; anyWarn = true; }
-      else { mark.style.color = "red"; mark.textContent = "✘"; anyWrong = true; }
-      inp.after(mark);
 
-      if (!exact) exactAll = false;
+      if (ok && !warn) { mark.style.color = "green"; mark.textContent = "✔"; }
+      else if (ok && warn){ mark.style.color = "#b45309"; mark.textContent = "!"; anyWarn = true; }
+      else { mark.style.color = "red"; mark.textContent = "✘"; allOK = false; }
+
+      inp.after(mark);
     });
 
-    if (toUnlock.length) addUnlockedWords(item.id, toUnlock); // ⭐ 保存解锁到本地
-    renderProgress(); // ⭐ 刷新进度
+    if (toUnlock.length) addUnlockedWords(item.id, toUnlock);
+    renderProgress();
 
-    if (exactAll) {
+    if (allOK) {
       $("#result").textContent = "✅ All blanks correct!";
       localStorage.setItem(resultKey(mode, item.id), "correct");
-    } else if (!anyWrong && anyWarn) {
+    } else if (!allOK && anyWarn && !ins.some((inp, k)=>!findWordMatch((inp.value||"").trim(), (answers[k]||"").trim()))) {
       $("#result").innerHTML = "⚠️ Spelling correct, but check capitalization (first letter).";
       localStorage.setItem(resultKey(mode, item.id), "warn");
     } else {
@@ -333,24 +448,34 @@ function onCheck(){
     }
   }
 
-  renderNav();
+  renderNav(); // 评判后立即刷新导航（若首次满贯则落库并显示金框）
 }
 
 /* 看答案 */
 function onShow(){
-  const item = list[idx];
-  if (!item) return;
-  $("#result").innerHTML = `Answer: <span class="answer">${item.answer}</span>`;
+  const item = list[idx]; if (!item) return;
+  if (mode === "full") {
+    const input = $("#inputs input.full");
+    const user = (input?.value || "").trim();
+    const highlighted = highlightMissingInAnswer(item.answer || "", user || "");
+    $("#result").innerHTML = `Answer: <span class="answer">${highlighted}</span>`;
+  } else {
+    $("#result").innerHTML = `Answer: <span class="answer">${item.answer}</span>`;
+  }
 }
 
-/* 重置当前模式记录 */
+/* 重置（清掉本模式记录 & 常驻金框标记 & 脉冲记录） */
 function onResetAll(){
-  list.forEach(item=>localStorage.removeItem(resultKey(mode, item.id)));
+  list.forEach(item=>{
+    localStorage.removeItem(resultKey(mode, item.id));
+    localStorage.removeItem(starPersistKey(item.id));   // ← 仅 Reset 时才移除常驻金框
+    localStorage.removeItem(starCelebrateKey(item.id)); // 允许下次再次脉冲
+  });
   idx = 0;
   render();
   renderNav();
   $("#result").textContent = "";
-  renderProgress(); // ⭐ 保持进度条刷新
+  renderProgress();
 }
 
 /* 启动 */
