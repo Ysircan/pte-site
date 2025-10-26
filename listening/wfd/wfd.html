@@ -188,6 +188,34 @@ const countHoles = s => ((s||"").match(/___/g) || []).length;
 const wordOnlyTokens = s => (s||"").toLowerCase().match(/[a-z']+/g) || [];
 const freqMap = tokens => { const m=new Map(); for(const t of tokens)m.set(t,(m.get(t)||0)+1); return m; };
 
+/* —— 工具：根据 id 定位 / 每模式记忆 idx —— */
+const lastIdxKey = m => `wfd_last_idx_${m}`;
+
+function findIndexById(arr, id) {
+  if (!id || !arr || !arr.length) return -1;
+  return arr.findIndex(x => String(x.id) === String(id));
+}
+
+function rememberIdx() {
+  const item = list[idx];
+  if (!item) return;
+  localStorage.setItem(lastIdxKey(mode), String(idx));
+}
+
+function restoreIdxForMode(m, arr, fallbackId) {
+  // 1) 优先：同题 id
+  if (fallbackId) {
+    const k = findIndexById(arr, fallbackId);
+    if (k >= 0) return k;
+  }
+  // 2) 其次：该模式上次停留 idx
+  const saved = localStorage.getItem(lastIdxKey(m));
+  const k = Number.isInteger(+saved) ? +saved : 0;
+  if (k >= 0 && k < arr.length) return k;
+  // 3) 否则：0
+  return 0;
+}
+
 function judgeFULL(answerText, userText){
   const need = freqMap(wordOnlyTokens(answerText));
   const have = freqMap(wordOnlyTokens(userText));
@@ -259,23 +287,42 @@ function renderProgress(){
 /* Tab */
 $("#tabs").addEventListener("click", e=>{
   const t = e.target.closest(".tab"); if(!t) return;
+
+  // 记录当前题目的 id，供切换后对齐
+  const currentItem = list[idx];
+  const currentId = currentItem ? currentItem.id : null;
+
+  // 切换模式
   mode = t.dataset.mode;
   [...$("#tabs").children].forEach(x=>x.classList.toggle("active", x===t));
-  rebuild();
+
+  // 重建列表，但按同题 id / 记忆 idx 还原题号
+  rebuild(currentId);
 });
 
 /* 按钮 */
 $("#checkBtn").addEventListener("click", onCheck);
 $("#showBtn").addEventListener("click", onShow);
 $("#resetBtn").addEventListener("click", onResetAll);
-$("#prevBtn").addEventListener("click", ()=>{ if(!list.length) return; idx=(idx-1+list.length)%list.length; render(); renderNav(); });
-$("#nextBtn").addEventListener("click", ()=>{ if(!list.length) return; idx=(idx+1)%list.length; render(); renderNav(); });
+$("#prevBtn").addEventListener("click", ()=>{
+  if(!list.length) return;
+  idx=(idx-1+list.length)%list.length;
+  rememberIdx();
+  render(); renderNav();
+});
+$("#nextBtn").addEventListener("click", ()=>{
+  if(!list.length) return;
+  idx=(idx+1)%list.length;
+  rememberIdx();
+  render(); renderNav();
+});
 
 /* 载入题库 */
-function rebuild(){
+function rebuild(fallbackId=null){
   const MAP = { fw: (window.DATA_FW||[]), cw: (window.DATA_CW||[]), full: (window.DATA_FULL||[]) };
   list = MAP[mode] || [];
-  idx = 0;
+  idx = restoreIdxForMode(mode, list, fallbackId);
+
   if(!list.length) renderEmpty(); else render();
   renderNav();
 }
@@ -362,7 +409,12 @@ function renderNav(){
       btn.classList.add('gold-frame');
     }
 
-    btn.addEventListener("click",()=>{idx=i;render();renderNav();});
+    btn.addEventListener("click",()=>{
+      idx=i;
+      rememberIdx();
+      render();
+      renderNav();
+    });
     grid.appendChild(btn);
   });
 }
@@ -448,6 +500,7 @@ function onCheck(){
     }
   }
 
+  rememberIdx();
   renderNav(); // 评判后立即刷新导航（若首次满贯则落库并显示金框）
 }
 
@@ -471,6 +524,7 @@ function onResetAll(){
     localStorage.removeItem(starPersistKey(item.id));   // ← 仅 Reset 时才移除常驻金框
     localStorage.removeItem(starCelebrateKey(item.id)); // 允许下次再次脉冲
   });
+  localStorage.removeItem(lastIdxKey(mode)); // 清除该模式的“上次题号”记忆
   idx = 0;
   render();
   renderNav();
