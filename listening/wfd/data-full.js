@@ -133,7 +133,7 @@ window.DATA_FULL = [
   { id: 129, audio: "129.mp3", prompt: "", answer: "Students are advised that the lecture today has been cancelled" },
   { id: 130, audio: "130.mp3", prompt: "", answer: "They developed a unique approach to training their employees" },
   { id: 131, audio: "131.mp3", prompt: "", answer: "Experts are now able to forecast weather over a much longer period" },
-  { id: 132, audio: "132.mp3", prompt: "", answer: "One of the election promises is to decrease income taxes students" },
+  { id: 132, audio: "132.mp3", prompt: "", answer: "One of the election promises is to decrease income taxes" },
   { id: 133, audio: "133.mp3", prompt: "", answer: "Our courses help improve critical thinking and independent learning skills" },
   { id: 134, audio: "134.mp3", prompt: "", answer: "Students are encouraged to monitor their own attendance" },
   { id: 135, audio: "135.mp3", prompt: "", answer: "The ability to work with fellow students cannot be stressed enough" },
