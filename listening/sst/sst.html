@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>SST · Summarize Spoken Text</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root { --bg:#f6f7fb; --ink:#0b1220; --muted:#6b7280; --brand:#0f62fe; --border:#e5e7eb; --card:#fff; --ok:#16a34a; --warn:#f59e0b; --bad:#ef4444; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto}
+  header{background:#0b1220;color:#fff;padding:14px 18px;display:flex;align-items:center;gap:14px}
+  header .tag{border:1px solid #ffffff2e;border-radius:999px;padding:4px 10px;font-size:12px;opacity:.9}
+  header .grow{flex:1}
+  main{max-width:980px;margin:26px auto;padding:0 16px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;box-shadow:0 6px 20px rgba(2,8,23,.05);margin-bottom:14px}
+  h1{font-size:22px;margin:0 0 4px 0}
+  .muted{color:var(--muted)}
+  .row{display:flex;gap:16px;flex-wrap:wrap}
+  .col{flex:1 1 420px}
+  button{cursor:pointer;border:1px solid var(--border);background:#fff;border-radius:10px;padding:10px 14px;font-weight:600}
+  button.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  button.ghost{background:#fff;border:1px dashed var(--border)}
+  .space{height:8px}
+  audio{width:100%}
+  #origText{white-space:pre-wrap;line-height:1.65}
+  .hidden{display:none}
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  select, textarea{border:1px solid var(--border);border-radius:10px}
+  select{padding:8px 10px}
+  textarea{padding:12px 12px; width:100%; min-height:200px; font-size:15px; line-height:1.6; resize:vertical}
+  .pill{padding:6px 10px;border-radius:999px;border:1px solid var(--border);background:#fff;font-size:12px}
+  .hint{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+  .chip{border-radius:999px;padding:2px 8px;border:1px solid var(--border);background:#fff;font-size:12px}
+  .chip.ok{border-color:#bbf7d0;background:#f0fdf4;color:#14532d}
+  .chip.warn{border-color:#fde68a;background:#fffbeb;color:#78350f}
+  .chip.bad{border-color:#fecaca;background:#fff1f2;color:#7f1d1d}
+  .right{display:flex;gap:10px;align-items:center}
+</style>
+ <nav style="
+    background:#0b1220;
+    color:#fff;
+    padding:14px 20px;
+    display:flex;
+    gap:28px;
+    justify-content:center;
+  ">
+    <a href="../../index.html" style="color:#fff;text-decoration:none;font-weight:600;opacity:.9">Home</a>
+    <a href="../../speaking/index.html" style="color:#fff;text-decoration:underline;font-weight:600;">Speaking</a>
+    <a href="../../writing/index.html" style="color:#fff;text-decoration:none;font-weight:600;opacity:.9">Writing</a>
+    <a href="../../reading/index.html" style="color:#fff;text-decoration:none;font-weight:600;opacity:.9">Reading</a>
+    <a href="../../listening/index.html" style="color:#fff;text-decoration:none;font-weight:600;opacity:.9">Listening</a>
+  </nav>
+</head>
+<body>
+
+
+<main>
+  <!-- 顶部标题 + 按钮 -->
+  <div class="card">
+    <div class="row" style="align-items:center">
+      <div class="col">
+        <h1 id="title">SST 001</h1>
+        <div class="muted">Listen, then type your summary. (Recommended: 50–70 words)</div>
+      </div>
+      <div class="col" style="display:flex;justify-content:flex-end;align-items:center">
+        <div class="toolbar">
+          <button id="btnPrev">Previous</button>
+          <button id="btnNext" class="primary">Next</button>
+          <button id="btnToggle" class="ghost">Show Original</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 音频选择 + 播放 -->
+  <div class="card">
+    <div class="toolbar" style="margin-bottom:10px">
+      <label class="muted">Audio:</label>
+      <select id="selId" title="Choose item (001-012)"></select>
+      <button id="btnReload" class="ghost" title="Reload audio">Reload</button>
+      <span class="muted">Path: <span id="pathHint">audio/001.mp3</span></span>
+    </div>
+    <audio id="player" controls preload="metadata"></audio>
+  </div>
+
+  <!-- 原文开关卡片（可选） -->
+  <div id="origCard" class="card hidden">
+    <div class="muted" style="margin-bottom:8px">Original Transcript (optional)</div>
+    <div id="origText"></div>
+  </div>
+
+  <!-- 输入框 + 词数统计 -->
+  <div class="card">
+    <div class="hint">
+      <div class="muted">Type your summary below. It saves locally on this device per item.</div>
+      <div class="right" style="gap:8px">
+        <span id="wordChip" class="chip">Words: 0</span>
+        <span id="rangeChip" class="chip warn">Target: 50–70</span>
+        <button id="btnClear" class="ghost" title="Clear current answer">Clear</button>
+        <button id="btnCopy" class="ghost" title="Copy to clipboard">Copy</button>
+      </div>
+    </div>
+    <div class="space"></div>
+    <textarea id="answer" placeholder="Write a concise, well-structured summary…"></textarea>
+  </div>
+</main>
+
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+
+  // 统一控制题量（改这里就好！）
+  const TOTAL = 16;                 // ← 比如要 40 题就写 40
+  const PAD   = 3;                  // 001 样式的编号位数
+  const ID    = n => String(n).padStart(PAD,'0');
+
+  // 可选原文（缺的留空即可）
+  const ORIGINALS = {
+    '001': `The debt today is so high. It's two hundred thousand rubies, three hundred thousand rubies of peasants who have no capital. They who know within a year or two when they accumulate that kind of debt. Where is the debt coming from? Well, it's coming from a seed that is costing 100,000 to about 200,000 rubies per kilogram, depending on what you got. Seed that used to be free used to be theirs. Pesticides, each time, the more they use, the more they have to use. 12 sprays, 15 sprays, maybe 20 sprays. Pesticides used in just the last five years in the land areas of India has shown up by 2,000%. That's why the free market and globalization have brought, and since we're talking about peasants who have no money, who have no capital, they can only buy expensive seeds and expensive pesticides by borrowing. And who lends them that money? The seed companies that sell the pesticides, which are the same companies that sell the seeds, as you know, are now also the major creditors.`,
+    '002': `Globalization. What is globalization? I think that is takes on a few different definitions. In one sense of the word, globalization means proliferation of transactions across a country. So one way of thinking about globalization is that is a way to describe a country's increase in international communications, more trade between countries, and being less self-sufficient in providing goods to their people, and having more companies that have offices in multiple countries, which we call multinationals. In other words, it is the source of growth in travel, communication, and corporate trade across borders. And this way of thinking about globalization is the continuation of thinking that has been around for a long time. Such as when the Europeans went to the Orient to find spices, which was also an example of global trade and communication. Another way to think of globalization, though, is an economic system. It is a system in which countries become integrated in a way that had never been seen before. In this system, we see a global split in the process between consuming and producing goods. Some countries produce goods, some countries consume goods, and then these countries in different areas of the globe depend on each other in a kind of organic solidarity rather than having an economic system being just inside your country. This system is the way the economy in your country depends on the economy of another country. And in fact, this way of thinking about globalization represents a new era of economic progression. The post-industrial economy has been a global issue.`,
+    '003': `Humans used to tell a computer what to do and how to do it. This means that every action a computer takes was directly programmed by humans. Computers relied on specific instructions, and they followed these instructions to perform tasks. However, when given the meaning of certain words, computers can now operate as programmed and even develop systems and symbols on their own. This advancement represents a significant shift in how computers function. In other words, computers now have the ability to turn messages into bytes. This process allows them to interpret, process, and act upon data in increasingly complex ways. What makes computers particularly powerful is their ability to process symbols, which is an important feature shared with human brains. Both computers and the human brain can process and manipulate symbols, although in different ways. Because of this similarity in function, computers may have the potential to bring about artificial intelligence. By processing symbols and learning from patterns, computers could potentially develop more advanced forms of thinking and reasoning, much like human intelligence. While we are still a long way from fully replicating the human brain, the development of computers as symbol processors marks an important step toward the possibility of creating artificial intelligence.`,
+    '004': `31 obese women volunteered to participate in a Canadian experiment aimed at testing changes in their body fat. These women were asked to follow strict daily diet requirements and to engage in prescribed exercises every day. 
+The goal was to understand how such a regimen would affect their weight and overall health over time. After six months, the results were surprising. Some of the participants lost weight, as expected. 
+However, others showed no change in their weight, and some even gained weight. These unexpected outcomes raised questions about what might have gone wrong, given that all participants were following the same guidelines. 
+There are two possible explanations for these varied results. First, some participants may have cheated on the diet either intentionally or unintentionally. For example, small deviations in food choices or portion sizes could have impacted their results. 
+Second, psychological factors could have played a role. Some participants might have reduced their level of exercise, either consciously or unconsciously. For instance, they may have felt less motivated or justified doing less physical activity because they believed the diet alone would be sufficient. 
+These findings highlight the complexities of weight loss and the importance of understanding not just the physical but also the psychological factors involved in such experiments. They also emphasize the need for ongoing support and monitoring to help individuals stay consistent with their health goals. 
+`,
+    '005': `So, the topic for today is an abstraction, and this is a very important layer of the computer because you can't do anything with a computer unless you have a symbolic system in place. Right, so we're talking about the origin of symbolic systems. Language is a classic symbolic system. The theory for why language evolved is that people communicated with sign language and with movement quite well for a long time, and it turned out that they wanted to communicate even while they were doing things. So while they were trying to strangle the dinosaur, not dinosaurs, the rhinoceros, they wanted to say, come help me, and they used sign language to do it. They had to let go of the rhinoceros and the rhinoceros ran away. So you can see that it's a good idea to be able to do something with your hands and be able to communicate it at the same time. Hence, words and language.`,
+    '006': `Within most developed countries, we have notions of pragmatism, notions of the fact that we have democracies that have succeeded in tempering the market economy. In the 19th century, 18th century industrial revolution had some very negative effects on people, particularly working classes all over the world. We see data where life expectancy was reduced, hikes were reduced. We can look at medical records and see that actually living standards in much of the large fractions of the population actually went down. But eventually, we passed legislation about working conditions, and eventually we circumscribed some of the worst kinds of behavior. We eventually, in the 20th century, put in regulations that impose better environmental conditions. And so, some of the damage was reversed. And we have made the market economy work in ways that the benefits of it are at least far more widely shared than they were 100 years ago.`,
+    '007': `So, happiness economics can help us get to these questions, and I'll try to give you some examples of this. Now, even though there's a lot of skepticism originally about using this survey, surveys show what people say make them happy. And there's a number of reasons that we are getting increasingly confident in doing so. One is that their consistent pattern, their remarkable consistent pattern, determines well-being across large samples of people, across countries, across the world, and over time, and shows some of the basic things that make people happy. And I will show you some of these. Income, health, marital status, employment status, and some of these very basic things are remarkably consistent across countries across the world. So that gives us some sense that these surveys are picking up consistent patterns. And when we know what consistent patterns are, we can look at how other things are affecting people's well-being. The environment and equality, the nature institution raging on living, and all kinds of other things.`,
+    '008': `There can now be no reasonable science-based doubt about the reality of global climate change effects brought on by the cumulative and rapidly growing emission of so-called greenhouse gases, primarily carbon dioxide into the atmosphere. As these effects become increasingly more obvious worldwide, so commercial interests, groups of concerned individuals, and national governments have been gripped by what amounts to mass panic about what to do about it. To many, Paul Ehrlich's Methusian population bomb of 1968 appears about to explode in the world's face in an indirect version of his millenniarian vision of population growth, which outpaces agricultural production capacity with predictably catastrophic results for humanity. And his three-part crisis scenario does indeed seem now to be present, a rapid rate of change, a limit of some sort, and delays in perceiving that limit. Ehrlich's work was roundly criticized at the time and later from many quarters, and much of what he predicted did not come about. Nevertheless, can the world afford to take the risk that the climate scientists have got it wrong? Is it not in everyone's interests to apply the precautionary principle in attempting to avoid the worst of their predictions now rather than at some future time? As the chairman of the Intergovernmental Panel on Climate Change, Mr. Rodrenja Pachuri, has recently pointed out, 11 of the warmest years since instrumental records began have occurred in the past 12, while major precipitation changes are taking place on a global scale.`,
+    '009': `So, I think you all know what I mean by globalization, don't you? This is the idea that we all live in a global village. With instant communications, we can share ideas and consume cultural artifacts from countries all over the world just by going into the internet and all dream up, basically. The world is shrinking. In terms of speeds, it is accelerating, but in terms of distance, it's shrinking. What do I mean by detraditionalization? I mean the disappearance or the erosion for the better word to use, the erosion of traditional cultures, of conventional ways of doing things, of conventional moralities. More and more young people around the world are rejecting the culture they grew up in, and it's probably a little bit cruel, but some imitating a Hollywood model of society rather than the one which they inherit from their local tradition background.`,
+    '010': `With the concept of moral objectivism, what we're looking at is the idea that there can be some universal moral principles, some rules, some ideas, and guidelines that are valid for all people in all social environments and all situations. The idea that we can essentially have some signposts or a roadmap to guide behavior is going to be consistent across all individuals. Now, if we take a look at this one perspective, we can come up with a view of moral absolutism. And the area of moral absolutism, basically, what we have is illustrated on the right-hand side of this slide, is a very firm and unyielding boundary between what is right and what is wrong. And so, within moral absolutism, basically what you have are these non-overridable principles. They must be followed. They must never be violated, and there were no exceptions. It is always right, it is always wrong, and nothing is subject to interpretation, and nothing is dependent upon the situation.`,
+    '011': `One of the things that was going on during the Great Depression was the beginning of the sort of modern food technology that rules the way Americans eat today. That is, there are a lot of canned foods coming onto the market at the time. And also, refrigerators were really becoming very, very popular during the Great Depression, both in cities and in rural parts of the country, thanks to electrification, the Rural Electrification Administration. People could buy appliances, you know, farmers could buy appliances, and that meant frozen foods were becoming big. And, you know, at that time, few people could afford to buy them during the early years of the Great Depression, but gradually these things picked up. And so this was like the sort of beginning of the era when people were starting to think about supermarkets with rows and rows of freezer cases and rows and rows of canned foods.`,
+    '012': `Well, a historical linguist compares languages at several levels. You start out looking for basic vocabulary. All languages of the world, natural languages at least, have words for eye and head and nose and ear and for sky and earth and for water, sand and for sibling, mother and father. They may not have words for uncle and aunt. It becomes much vaguer because in one culture an aunt is different when it comes from your father's side than from your mother's side. You don't include snow. Most people know what snow is, but in the tropics you don't have it. So you look for notions that are totally comparable and that occur everywhere in the world. You take the 100 or 200 most universal notions in a human life. That is what you call a basic vocabulary. So you take basic vocabularies in languages that you think are related. You look for words that sound the same.`,
+    '013': `Organisation studies seems to draw on the whole family of social sciences. Clearly psychology, clearly sociology, but also economics, anthropology. Politics, as we said, philosophy to a degree, history, sometimes from literary studies, cultural studies, and so on and so forth. Yeah, I think that's absolutely right. And for me, that's absolutely the pleasure and even on good days, the joy of doing organisation studies, because it enables you, not just enables, but requires you in some sense to have some kind of broad familiarization of that sort. Now, there's a price to be paid for that, because that kind of breadth, if you like, does come, I suppose, at a cost of depth. And I guess there would be people who are clearly within academic disciplines of sociology or economics or whatever, who might say, well, these are sort of magpie-ish, amateurish kind of forays into our territory. You know, I wouldn't necessarily disown that idea. But I think that what studying organisations teaches us and teaches me is actually the artificiality of those academic subdivisions. And as soon as we start to actually think about something like the organised world, then immediately the kinds of things that come into focus have been studied by different domains. And so I think it's a liberating idea, the idea that we don't need to be bound by those strictures and structures of disciplinary division, and that we can be free actually to imagine and think about the social world through an agglomeration of techniques and ideas and theories and concepts from across the social sciences.`,
+    '014': `The first inhabitants in Australia were the ancestors of the present Indigenous people. Whether these first migrations involved one or several successive waves and distinct peoples is still a subject to academic debate, as is its timing. 
+The minimum widely accepted timeframe places presence of humans in Australia at 40,000 to 43,000 years before present, while the upper range supported by others is 60,000 to 70,000 years before present. 
+In any event, this migration was achieved during the closing stages of the Pleistocene epoch when sea levels were typically much lower than they are today. Repeated episodes of extended glaciation resulted in decreases of sea levels by some 100,150 meters. 
+The continental coastline, therefore, extended much further out into the Timor Sea than it does today, and Australia and New Guinea formed a single landmass, known as Sahul, connected by an extensive land bridge across the Arafura Sea, Gulf of Carpentaria, and Torres Strait. 
+The ancestral Australian Aboriginal peoples were thus long established and continued to develop, diversify, and settle through much of the continent. As the sea levels again rose at the terminus of the most recent glacial period some 10,000 years ago, the Australian continent once more became a separated landmass. 
+However, the newly formed 150 kilometer wide Torres Strait, with its chain of islands, still provided the means for cultural contact and trade between New Guinea and the northern Cape York Peninsula. 
+During the 1970s and 1980s, around 120,000 southern Asian refugees migrated to Australia. During that 20 years, Australia first began to adopt a policy of what Minister of Immigration Al Graspi termed multiculturalism. 
+In 2004 to 2005, Australia accepted 123,000 new settlers, a 40% increase over the past 10 years. The largest numbers of immigrants, 40,000 in 2004 slash 2005, moved to Sydney. The majority of immigrants came from Asia, led by China and India. `,
+    '015': `I hope I needn't elaborate too much why I think it is that uh population matters in the world. These are the kind of topics which are normally cited when thinking about population, its challenges, its problems, its opportunities. It's not all problems after all. Pressure on resources, a very obvious point when world population has reached now 7 billion and is increasing by 70 or 80 million people per year. A diminishing number, of course, but nonetheless, it's still quite a challenge, particularly when global population is almost certain to add another 3 billion to that 6 billion, with all kinds of questions as to the adequacy of resources, water particularly in global climate change, but also food and other aspects of resources later on. Problems of security, because this growth will not be equally distributed between different parts of the world. Some parts of the world will grow, other parts of the world will shrink. The balance of power, therefore, will correspondingly change for demographic reasons, as we will see. Urban growth is remarkable. We already have mega cities of 20 million people. These are going to grow even further in due course, and one wonders just how far they can grow before certain aspects of the infrastructure start breaking down.`,
+    '016': `My lab works on the applications of synthetic biology, so we're very interested in doing useful things with biological systems. Up to now, life has evolved and now we actually have the ability and the power to engineer it, to design it. And I'm curious about what the natural world is going to look like in the future. So synthetic biology is sort of the next level of genetic engineering. So about 40 years ago, we, being scientists and engineers, developed techniques to basically move pieces of DNA from one organism to another. And this was sort of done by physically cutting and pasting. And now we're moving beyond that, where we can write DNA. So we're no longer limited to the pieces. We can cut from one and put it in another. We can chemically synthesize this DNA on a machine and put that into an organism. Now we can even create new organisms completely from scratch. So if you imagine a cell that's programmed to make a useful compound, say material or a drug, then what you have is basically a micro scale manufacturing unit. It's basically a cellular factory. And the cool thing about cellular factory is that when you want more factories, you love that cell grow and divide. So if in the lab we have one bacteria, we put it in a flask, the next day we come in, we have millions, if not billions, of bacteria.`,
+  };
+
+  const state = { id: ID(1), showOrig:false, keyNS:'sst_simple_' };
+  const keyAns = id => `${state.keyNS}answer_${id}`;
+  const getAns = id => localStorage.getItem(keyAns(id)) || '';
+  const setAns = (id, v) => localStorage.setItem(keyAns(id), v || '');
+
+  document.addEventListener('DOMContentLoaded', init);
+
+  function init(){
+    // 填充下拉（1..TOTAL）
+    const sel = $('#selId');
+    for (let i=1;i<=TOTAL;i++){
+      const id = ID(i);
+      const opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = `SST ${id}`;
+      sel.appendChild(opt);
+    }
+
+    // ?i= 指定题号（1..TOTAL）
+    const url = new URL(location.href);
+    const qsIdx = parseInt(url.searchParams.get('i') || '1', 10);
+    if (qsIdx >=1 && qsIdx <= TOTAL) state.id = ID(qsIdx);
+    sel.value = state.id;
+
+    // 事件
+    $('#btnPrev').addEventListener('click', prev);
+    $('#btnNext').addEventListener('click', next);
+    $('#btnReload').addEventListener('click', () => $('#player').load());
+    $('#btnToggle').addEventListener('click', toggleOrig);
+    sel.addEventListener('change', () => { state.id = sel.value; render(); });
+
+    $('#answer').addEventListener('input', onInput);
+    $('#btnClear').addEventListener('click', clearAnswer);
+    $('#btnCopy').addEventListener('click', copyAnswer);
+
+    // 键盘
+    document.addEventListener('keydown', e => {
+      const tag = e.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (e.code === 'Space') { e.preventDefault(); const p = $('#player'); (p.paused? p.play(): p.pause()); }
+      else if (e.key === 'ArrowLeft')  prev();
+      else if (e.key === 'ArrowRight') next();
+      else if (e.key.toLowerCase() === 'o') toggleOrig();
+    });
+
+    render();
+  }
+
+  // 渲染
+  function render(){
+    $('#title').textContent = `SST ${state.id}`;
+    const path = `audio/${state.id}.mp3`;
+    $('#player').src = path;
+    $('#pathHint').textContent = path;
+
+    renderOrig();
+
+    const ans = getAns(state.id);
+    $('#answer').value = ans;
+    updateWordInfo(ans);
+
+    // 更新 URL ?i=
+    const url = new URL(location.href);
+    url.searchParams.set('i', String(parseInt(state.id,10)));
+    history.replaceState(null, '', url.toString());
+  }
+
+  function renderOrig(){
+    const txt = ORIGINALS[state.id] || '';
+    if (state.showOrig) {
+      $('#origCard').classList.remove('hidden');
+      $('#origText').textContent = txt.trim() ? txt : '（暂无原文，可稍后补充…）';
+      $('#btnToggle').textContent = 'Hide Original';
+    } else {
+      $('#origCard').classList.add('hidden');
+      $('#btnToggle').textContent = 'Show Original';
+    }
+  }
+
+  // 导航
+  function prev(){
+    const n = parseInt(state.id, 10);
+    const m = (n - 2 + TOTAL) % TOTAL + 1; // 1..TOTAL 循环
+    state.id = ID(m);
+    $('#selId').value = state.id;
+    render();
+  }
+  function next(){
+    const n = parseInt(state.id, 10);
+    const m = (n % TOTAL) + 1;             // 1..TOTAL 循环
+    state.id = ID(m);
+    $('#selId').value = state.id;
+    render();
+  }
+  function toggleOrig(){ state.showOrig = !state.showOrig; renderOrig(); }
+
+  // 输入与统计
+  let tSave;
+  function onInput(e){
+    const val = e.target.value;
+    updateWordInfo(val);
+    clearTimeout(tSave);
+    tSave = setTimeout(() => setAns(state.id, val), 250);
+  }
+
+  function updateWordInfo(text){
+    const words = countWords(text);
+    $('#wordChip').textContent = `Words: ${words}`;
+    const chip = $('#rangeChip');
+    if (words === 0){
+      chip.textContent = 'Target: 50–70';
+      chip.className = 'chip warn';
+    } else if (words >= 50 && words <= 70){
+      chip.textContent = 'Good: 50–70';
+      chip.className = 'chip ok';
+    } else if (words < 50){
+      chip.textContent = 'Too short (<50)';
+      chip.className = 'chip bad';
+    } else {
+      chip.textContent = 'Too long (>70)';
+      chip.className = 'chip bad';
+    }
+  }
+
+  function countWords(s){
+    return (s.trim()
+      .replace(/[\r\n]+/g,' ')
+      .replace(/[.,!?;:"'’”“()[\]]/g, ' ')
+      .split(/\s+/)
+      .filter(Boolean)).length;
+  }
+
+  function clearAnswer(){
+    if (!confirm('Clear current summary?')) return;
+    $('#answer').value = '';
+    setAns(state.id, '');
+    updateWordInfo('');
+  }
+  function copyAnswer(){
+    const txt = $('#answer').value;
+    if (!txt.trim()) return;
+    navigator.clipboard.writeText(txt).then(()=>{},()=>{});
+  }
+})();
+</script>
+
+
+</body>
+</html>

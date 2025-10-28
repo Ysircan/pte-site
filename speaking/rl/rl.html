@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>RL · Read Aloud Practice</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --bg:#f6f7fb;
+    --ink:#0b1220;
+    --muted:#6b7280;
+    --brand:#0f62fe;
+    --border:#e5e7eb;
+    --card:#fff;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:system-ui,-apple-system,Segoe UI,Roboto;
+  }
+
+  /* 🔹 顶部导航栏样式 */
+  nav{
+    background:#0b1220;
+    color:#fff;
+    padding:14px 20px;
+    display:flex;
+    gap:28px;
+    justify-content:center;
+  }
+  nav a{
+    color:#fff;
+    text-decoration:none;
+    font-weight:600;
+    opacity:.9;
+  }
+  nav a:hover{opacity:1}
+
+  /* 🔹 页面内容与卡片结构 */
+  header{
+    background:#0b1220;
+    color:#fff;
+    padding:14px 18px;
+    display:flex;
+    align-items:center;
+    gap:14px;
+  }
+  header .tag{
+    border:1px solid #ffffff2e;
+    border-radius:999px;
+    padding:4px 10px;
+    font-size:12px;
+    opacity:.9;
+  }
+  header .grow{flex:1}
+  main{max-width:980px;margin:26px auto;padding:0 16px}
+  .card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:16px;
+    box-shadow:0 6px 20px rgba(2,8,23,.05);
+    margin-bottom:14px;
+  }
+  h1{font-size:22px;margin:0 0 4px 0}
+  .muted{color:var(--muted)}
+  .row{display:flex;gap:16px;flex-wrap:wrap}
+  .col{flex:1 1 420px}
+  button{
+    cursor:pointer;
+    border:1px solid var(--border);
+    background:#fff;
+    border-radius:10px;
+    padding:10px 14px;
+    font-weight:600;
+  }
+  button.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  button.ghost{background:#fff;border:1px dashed var(--border)}
+  .space{height:8px}
+  audio{width:100%}
+  #rlText{white-space:pre-wrap;line-height:1.65}
+  .hidden{display:none}
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  select, textarea{border:1px solid var(--border);border-radius:10px}
+  select{padding:8px 10px}
+  textarea{padding:10px}
+</style>
+</head>
+<body>
+
+<!-- 🔹 顶部导航栏 -->
+<nav>
+  <a href="../../index.html">Home</a>
+  <a href="../../speaking/index.html" style="opacity:1;text-decoration:underline;">Speaking</a>
+  <a href="../../writing/index.html">Writing</a>
+  <a href="../../reading/index.html">Reading</a>
+  <a href="../../listening/index.html">Listening</a>
+</nav>
+
+<!-- 🔹 页面标题区 -->
+
+
+
+<main>
+  <div class="card">
+    <div class="row" style="align-items:center">
+      <div class="col">
+        <h1 id="title">RL 001</h1>
+        <div class="muted">Listen, then read aloud. We do not record your voice.</div>
+      </div>
+      <div class="col" style="display:flex;justify-content:flex-end;align-items:center;gap:10px">
+        <div class="toolbar">
+          <button id="btnPrev">Previous</button>
+          <button id="btnNext" class="primary">Next</button>
+          <button id="btnToggle" class="ghost">Show Original</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="toolbar" style="margin-bottom:10px">
+      <label class="muted">Audio:</label>
+      <select id="selId" title="Choose item (001-012)"></select>
+      <button id="btnReload" class="ghost" title="Reload audio">Reload</button>
+      <span class="muted">Path: <span id="pathHint">audio/001.mp3</span></span>
+    </div>
+    <audio id="player" controls preload="metadata"></audio>
+  </div>
+
+  <div id="textCard" class="card hidden">
+    <div class="muted" style="margin-bottom:8px">Original Text</div>
+    <div id="rlText"></div>
+  </div>
+
+  <div class="card">
+    <div class="muted">Notes (local only)</div>
+    <textarea id="notes" style="width:100%;min-height:140px" placeholder="Write key points or issues to improve next round..."></textarea>
+    <div class="space"></div>
+  
+  </div>
+</main>
+
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+
+  const TEXTS = {
+    '001': `And this illustration often used is the one of the monkeys at the typewriter. Okay, so we have a monkey sitting at a typewriter, and the claim here is: basically, if you leave chance and time long enough, you will get life. Don't worry about it. Yes, it's strange. Yes, it's wonderful. But leave enough matter 600 million years on Earth and you will have life. So the monkey's sitting in the typewriter, the chances are eventually he produces the complete works of Shakespeare, so what's the problem? But he doesn't manage to do it in 600 million years. So what I decided to do to run the numbers is instead of saying type the complete works of Shakespeare, I just ran the numbers for how long would it take a monkey typing at one keystroke a second to type to be or not to be? That is the question. Right? On average, how long is it going to take my monkey friend at one keystroke a second? I don't know how long you think that would be. Maybe you could have a guess. Would it be less or more than 600 million years, which is the period life on Earth is supposed to have emerged within? And when I ran the numbers, to be or not to be, that is the question, takes 12.6 trillion, trillion, trillion, trillion years to type just that phrase. And a DNA string, that complexity emerged by chance, undirected, within 600 million years. Again, it's mathematically possible, but it's so incredibly unlikely that it would have that it tilts me in favour of the Christian story in which God creating life is simply a question of saying, let there be, and there was.`,
+    '002': `Today, we're going to recount heroic tales of superhuman feats of strength. When in the face of disaster, some people are said to have summoned up incredible physical power to lift a car off of an accident victim, move giant rocks, or like Big John of Song, single-handedly hold up a collapsing beam to let the other miners escape. Are such stories true? There are many anecdotes supporting the idea, but we're going to take a fact-based look at whether or not it truly is possible for an adrenaline charged person to temporarily gain massive strength. In proper terminology, such a temporary boost of physical power would be called hysterical strength. The stories are almost always in the form of one person lifting a car off of another. In one case in Colorado in 1995, a police officer arrived at a single car accident where a Chevy Chevette ended up on top of a baby girl and sank into the mud. The officer lifted the car and the mother pulled the girl out. In 2009, a man in Kansas lifted a mercury sedan off of a six-year-old girl who had been trapped underneath when it backed out on top of her. In 1960, a Florida mom lifted a Chevy Impala so that a neighbor could pull out her son who had become trapped when he was working on the car and his jack collapsed. There's even the case where the MD500D helicopter from Magnum PI crashed in 1988, pinning the pilot under shallow water, and his burly friend, nicknamed Tiny, ran over and lifted the one-ton helicopter enough for the pilot to be pulled out. And of course, the list goes on and on and on. In each of these cases, some aspect of leverage or buoyancy probably played some role in reducing the magnitude of the feat to something more believable, and even lifting many cars by several inches still leaves most of its weight supported by the suspension springs. But our purpose today is not to debunk any of these specific stories. The majority of them are anecdotal, and interestingly, not repeatable. In many cases, the person who summoned the super strength later tried it again only to find that they couldn't do it. Basically, what we have is a respectably large body of anecdotal evidence that suggests that in times of crisis, danger, or fear, some people have the ability to temporarily exercise superhuman strength.`,
+    '003': `So this is a kind of object that you're probably all familiar with when you hear the term robot, but I'm going to show you the very, very first robots. These were the very first robots. They were characters in a play in the 1920s called Rossum's Universal Robot. And the play was written by a Czech writer called Karol Chapak. And basically, these robots, you know, people tend to think of robots as kind of cute, cuddly toys or you know, Hollywood depictions kind of devoid of politics. But the first robots were actually created and imagined in a time of absolute political turmoil. You just had the First World War finished. That had a devastating impact across Europe. And so people were kind of reflecting on what does it mean to be human, what makes us human, those kind of questions. And this kind of context is what inspired Chappak to kind of write this play. And interestingly, these robots being human, they are actually in the play assembled on a production line, a bit like the Ford manufacturing production line. So even though they are human, they are assembled, and these robots are designed to labor, and that is their primary purpose in society.`,
+    '004': `I think with our linguistic training, we also get all of this invisible training to be authorities, to be the people who know. So it's a part of that process that you come out of this, where you come out of a world authority on your chosen subject. But when we move into working with communities, we have to recognise that the communities themselves have to be the authority in their language. Actually, a woman in a class I'm teaching at Sydney at the moment, a career woman, expressed this really nicely, although she was talking about something else. She was distinguishing expertise from authority and certainly linguists, because of our training, we do have expertise in certain very narrow areas of language, but we don't have the authority over what to do with that knowledge or what to do with the other knowledge that the community produces. So I guess the bottom line is languages are lost because of the dominance of one people over another. That's not rocket science. It's not that hard to work out. But then, I mean, what that means is if in working with language revival, we continue to hold the authority, we actually haven't done anything towards undoing how languages are lost in the first place. So, in a sense, the languages are still lost if the authority is lost.`,
+    '005': `In 1943, what became known as the Green Revolution began when Mexico, unable to feed its growing population, shouted for help. Within a few years, the Ford and Rockefeller Foundations founded the International Rice Research Institute in Asia, and by 1962, a new strain of rice called IR8 was feeding people all over the world. IR8 was the first really big modified crop to make a real impact on world hunger. In 1962, the technology did not yet exist to directly manipulate the genes of plants, and so IR8 was created by carefully crossing existing varieties, selecting the best from each generation, further modifying them, and finally finding the best. Here is the power of modified crops. IR8 with no fertilizer, straight out of the box, produced five times the yield of traditional rice varieties. In optimal conditions with nitrogen, it produced 10 times the yield of traditional varieties. By 1980, IR thirty six resisted pests and grew fast enough to allow two crops a year instead of just one, doubling the yield. And by 1990, using more advanced genetic manipulation techniques, IR 72 was outperforming even IR thirty six. The Green Revolution saw worldwide crop yields explode from nineteen sixty through two thousand.`,
+    '006': `Well, despite all this evidence and despite Jeremy Bentham, countries have not fallen all over themselves to use this research as an object of public policy. As Joanne pointed out, only one country, tiny little Bhutan, wedged between China and India, has adopted the gross national happiness as the central index of government policy and actually has had a good deal of success in education and in health and in economic growth and in environmental preservation. And they have a rather sophisticated way of measuring the effects of different policies on people's happiness. But they are the only country to go that far. But you're now beginning to get other countries interested enough to do kind of white paper policy analyses about whether happiness research, what effects would it have if we used it more for public policy. You're beginning to get countries like Australia, France, Great Britain that are considering publishing regular statistics on happiness. So it's beginning to become a subject of greater interest for policymakers and legislators in different advanced countries.`,
+    '007': `Knee isn't particularly pleasant, but it gets worse when you listen up close. It does for most people, but for me, it actually just makes me excited. Omar Enon, an electrical engineer at Georgia Tech. I actually feel like there's some real information in them that can be exploited for the purposes of helping people with rehab. Enon's experience with cracking knees goes back to his days as an undergrad at Stanford, where he threw discus. If I had a really hard workout, then the next day, of course, I'd be sore, but I would also sometimes feel that I wouldn't feel this basically catching or popping or creaking every now and then in my knee. Few years later, he found himself building tiny microphones at a high-end audio company. So when he got to Georgia Tech and heard the Defense Advanced Research Projects Agency, or DARPA, wanted better tech for knee injuries, he thought, why not strap tiny microphones to people's knees to eavesdrop as their legs bend? What we think it is, is the cartilage and bone rubbing against each other, the surfaces inside the knee rubbing against each other during those movements. He and a team of physiologists and engineers built a prototype with stretchy athletic tape and a few tiny mics and skin sensors. And preliminary tests on athletes suggest the squishy sounds the device picks up are more erratic and more irregular in an injured knee than in a healthy one, which Enon says might allow patients and doctors to track healing after surgery. Details appear in the IEEE transactions on biomedical engineering. The primary application we're targeting at first is to give people a decision aid during rehabilitation following an acute knee injury to help them understand when they can perform particular activities and when they can move to different intensities of particular activities. A useful thing to take a crack at.`,
+    '008': `The Earth's temperature is rising, and as it does, springtime phenomena, like the first bloom of flowers, are getting earlier and earlier. But rising temperatures aren't the only factor. Urban light pollution is also quickening the coming of spring. So temperature and light are really contributing to a double whammy of making everything earlier. Richard French Constant, an entomologist at the University of Exeter, he and his colleagues compiled 13 years of data from citizen scientists in the UK who tracked the first budburst of four common trees. And it turns out light pollution from streetlights in cities and along roads pushed budbursts a full week earlier, way beyond what rising temperatures could achieve. This disruptive timing can ripple through the ecosystem. The caterpillars that feed on trees are trying to match the hatching of their eggs to the timing of budbursts, because the caterpillars want to feed on the juiciest and least chemically protected leaves. And it's not just the caterpillars, of course, that are important, but the knock-on effect is on nesting birds, which are also trying to hatch their chicks at the same time that there's the maximum number of caterpillars. So earlier buds could ultimately affect the survival of birds and beyond. The findings are in the Proceedings of the Royal Society B. The world's becoming increasingly urbanized, and light pollution is growing, which French Constance says could trick trees into budding earlier and earlier.`,
+    '009': `Indeed, the library. We've all been to a historic library. We've all enjoyed the smell of a historic library. But what is it and what does it mean? When we've recently, when at UCL Centre for Sustainable Heritage, we've recently been asked to assess the environment at another historic library at St. Paul's Cathedral, the Wren Library. An incredible place. And it has such an intensive smell of old books. And we were also asked for the first time really, I was actually quite taken aback by the brief. We were asked, whatever you do, please preserve the smell. It's so important to our audience. It's so important how people perceive the library. So that was quite an important message in our research. And indeed, smell is an important way of how we communicate with the environment. This piece of research was done by an advertising company because advertisers are so interested in how we interact with each other and the environment. And we see that the majority of people use sight, obviously, to interact with the environment. But on the second place, we see that smell is also very, very important. It is also a very, very interesting`,
+    '010': `Word comes from California of a new weapon in the war on household pests. Two scientists working for a firm in Anaheim, California have developed a method to eliminate insects without using dangerous chemicals. The new poison? Hot air. The basic idea is that insects cannot adjust to temperatures much above normal. In laboratory experiments, cockroaches and termites can't survive much more than a quarter of an hour at 125 degrees Fahrenheit, or about 50 degrees centigrade. The new method involves covering a house with a huge tent and filling it with air heated to around 65 degrees centigrade. Hot air is forced in with fans, and the tent keeps the heat inside the house. Since termites try to escape by hiding in wooden beams, the heat treatment must be continued for a full six hours. But when it's all over and the insects are dead, there are no toxic residues to endanger humans or pets, and no funny smells. Scientists claim that there is no danger of fire either, since very few household materials will burn at 65 degrees centigrade. In fact, wood is prepared for construction use by drying it in ovens at 80 degrees centigrade, which is substantially hotter than the air used in this procedure.`,
+    '011': `So, what do we mean by well-being? Health, happiness, a sense of achievement and contentment. A state of mind and body where people can thrive. Well-being is not something that is purely limited to people who are facing extraordinary challenges in their lifestyle, health or personal circumstances. Everybody here has a level of well-being. Music so often forms an intuitive part of our well-being management. Music to pick us up, music to calm us down, music to heal our sorrows. Our aim through research is to move from this level of intuitive application of music through to informed use in our communities, to take the next step in the understanding of the power of music in human life. Music already works for us on so many levels, whether it's soothing and teaching our infants, bringing people and communities together, adding spirit to our work and personal endeavours. But there is no reason to stop here.`,
+    '012': `So I think I'm just going to start talking about stuff where we left off. Well, the hormone I want to talk about now, it's called melatonin. And the synthesis of this is in the pineal gland, which is this very small, it's the size of a pea in your brain. The corpus is the site of the soul, and it's where the melatonin is made. And it has a rhythm as well. And in a sense, it's the opposite of cortisol. It peaks at night. So we call it the darkness hormone. In every species that we studied, melatonin occurs at night. And it's a hormone that prepares you for the things that your species does at night. So, of course, in humans, we sleep, but in animals like rodents, they're awake. So it's a hormone that's related to darkness behavior.`
+  };
+
+  const state = { id:'001', showText:false, keyNS:'rl_simple_' };
+  const noteKey = id => `${state.keyNS}notes_${id}`;
+  const getNotes = id => localStorage.getItem(noteKey(id)) || '';
+  const setNotes = (id, v) => localStorage.setItem(noteKey(id), v || '');
+
+  document.addEventListener('DOMContentLoaded', init);
+
+  function init(){
+    const sel = $('#selId');
+    for (let i=1;i<=12;i++){
+      const id = String(i).padStart(3,'0');
+      const opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = `RL ${id}`;
+      sel.appendChild(opt);
+    }
+
+    const url = new URL(location.href);
+    const qsIdx = parseInt(url.searchParams.get('i') || '1', 10);
+    if (qsIdx >=1 && qsIdx <=12) state.id = String(qsIdx).padStart(3,'0');
+    sel.value = state.id;
+
+    $('#btnPrev').addEventListener('click', prev);
+    $('#btnNext').addEventListener('click', next);
+    $('#btnReload').addEventListener('click', () => $('#player').load());
+    $('#btnToggle').addEventListener('click', toggleText);
+    sel.addEventListener('change', () => { state.id = sel.value; render(); });
+    $('#notes').addEventListener('input', e => setNotes(state.id, e.target.value));
+
+    document.addEventListener('keydown', e => {
+      const tag = e.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        const p = $('#player');
+        if (p.paused) p.play(); else p.pause();
+      } else if (e.key === 'ArrowLeft') prev();
+      else if (e.key === 'ArrowRight') next();
+      else if (e.key.toLowerCase() === 'o') toggleText();
+    });
+
+    render();
+  }
+
+  function prev(){
+    const n = parseInt(state.id, 10);
+    const m = (n - 2 + 12) % 12 + 1;
+    state.id = String(m).padStart(3,'0');
+    $('#selId').value = state.id;
+    render();
+  }
+  function next(){
+    const n = parseInt(state.id, 10);
+    const m = (n % 12) + 1;
+    state.id = String(m).padStart(3,'0');
+    $('#selId').value = state.id;
+    render();
+  }
+
+  function toggleText(){
+    state.showText = !state.showText;
+    renderToggleBtn();
+    renderText();
+  }
+
+  function render(){
+    $('#title').textContent = `RL ${state.id}`;
+    const path = `audio/${state.id}.mp3`;
+    $('#player').src = path;
+    $('#pathHint').textContent = path;
+    renderToggleBtn();
+    renderText();
+    $('#notes').value = getNotes(state.id);
+    const url = new URL(location.href);
+    url.searchParams.set('i', String(parseInt(state.id,10)));
+    history.replaceState(null, '', url.toString());
+  }
+
+  function renderToggleBtn(){
+    $('#btnToggle').textContent = state.showText ? 'Hide Original' : 'Show Original';
+  }
+
+  function renderText(){
+    const txt = TEXTS[state.id] || '';
+    if (state.showText) {
+      $('#textCard').classList.remove('hidden');
+      $('#rlText').textContent = txt.trim() ? txt : '（暂无原文，稍后补全…）';
+    } else {
+      $('#textCard').classList.add('hidden');
+    }
+  }
+})();
+</script>
+
+</body>
+</html>
